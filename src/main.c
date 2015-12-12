@@ -45,6 +45,18 @@ int32_t load_level(cog_state_info info) {
         });
     }
 
+
+    cog_sprite_id pid = cog_sprite_add("../assets/images/player.png");
+    cog_sprite_set(pid, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=0.1, .h=0.1
+        },
+        .pos=(cog_pos2) {
+            .x=-0.4, .y=-0.1
+        },
+        .rot=0
+    });
+
     return State_running;
 }
 
@@ -64,7 +76,7 @@ void main_loop(void) {
 
 int main(int argc, char* argv[]) {
     cog_init(.window_w = 800,
-             .window_h = 600,
+             .window_h = 800,
              .fullscreen = false);
     fsm = cog_state_fsm_alloc();
     cog_state_fsm_add_transitions(fsm, transitions,
