@@ -1,5 +1,7 @@
 #include "cog/src/cog.h"
 
+#include <stdio.h>
+
 #define State_start 1
 #define State_running 2
 #define State_end 3
@@ -40,6 +42,8 @@ typedef struct {
     int32_t pos;
     int32_t max_pos;
     direction player_dir;
+    int32_t score;
+    cog_text* score_text;
     //Plots
     plot_state plot_states[MaxPlots];
     int32_t grow_timer[MaxPlots];
@@ -67,6 +71,7 @@ int32_t load_level(cog_state_info info) {
         g.water_timer[i] = 0;
         g.grow_sprites[i] = 0;
     }
+    g.score = 0;
 
 
     cog_sprite_id bid = cog_sprite_add("../assets/images/game_back.png");
@@ -136,6 +141,28 @@ int32_t load_level(cog_state_info info) {
     });
     cog_text_set_str(id, "plant");
 
+    // Score UI
+    cog_sprite_id cucumber_id = cog_sprite_add("../assets/images/cucumber.png");
+    cog_sprite_set(cucumber_id, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=0.1, .h=0.1
+        },
+        .pos=(cog_pos2) {
+            .x=-2.5*E, .y=-5.5*E
+        },
+    });
+    cog_text_id tid = cog_text_add();
+    cog_text_set(tid, (cog_text) {
+        .scale = (cog_dim2) {.w=0.004, .h=0.004},
+        .dim = (cog_dim2) {.w=2.0, .h=0.003},
+        .pos = (cog_pos2) {.x=1.25*E, .y=-6.0*E},
+        .col=(cog_color) {
+            .r=0,.g=0,.b=0,.a=1
+        }
+    });
+    cog_text_set_str(tid, "0");
+    g.score_text = cog_text_get(tid);
+
     cog_sprite* player = cog_sprite_get(pid);
 
     cog_sprite_id d_id = cog_sprite_add("../assets/images/d_key.png");
@@ -164,6 +191,11 @@ int32_t load_level(cog_state_info info) {
     g.arrow = cog_sprite_get(r_id);
 
     return State_running;
+}
+
+void increment_score() {
+    g.score++;
+    cog_text_set_str(g.score_text->id, "%d", g.score);
 }
 
 int32_t level_running(cog_state_info info) {
@@ -275,7 +307,7 @@ int32_t level_running_keypress(cog_state_info info) {
                     cog_sprite_remove(g.watered_sprites[g.pos]->id);
                     g.water_timer[g.pos] = 0;
                 }
-                //TODO: Give some points
+                increment_score();
             }
         }
     }
