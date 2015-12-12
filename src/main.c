@@ -15,6 +15,8 @@
 #define ArrowOffsetX 2.5*E
 #define E 0.161  // Golden ratio
 #define GrowTime 3000  //ms
+#define WaterTime 10000  //ms on how long between waterings
+#define WaterBenefitTime 10000  //ms on how much water gives you
 
 typedef enum {
     Backwards,
@@ -41,6 +43,7 @@ typedef struct {
     //Plots
     plot_state plot_states[MaxPlots];
     int32_t grow_timer[MaxPlots];
+    int32_t water_timer[MaxPlots];
     cog_sprite* grow_sprites[MaxPlots];
     cog_sprite* grown_sprites[MaxPlots];
     cog_sprite* watered_sprites[MaxPlots];
@@ -61,6 +64,7 @@ int32_t load_level(cog_state_info info) {
     for(int i = 0; i < MaxPlots; i++) {
         g.plot_states[i] = Idle;
         g.grow_timer[i] = 0;
+        g.water_timer[i] = 0;
         g.grow_sprites[i] = 0;
     }
 
@@ -168,9 +172,10 @@ int32_t level_running(cog_state_info info) {
     // State transitions for plants
     for(int i = 0;i<MaxPlots;i++) {
         if(g.plot_states[i] == Planted || g.plot_states[i] == Watered) {
-            if(g.grow_timer > 0) {
+            // Update grow timer to tell if it is ready to be harvested
+            if(g.grow_timer[i] > 0) {
                 g.grow_timer[i] -= delta_millis;
-                if(g.grow_timer[i] < 0) {
+                if(g.grow_timer[i] <= 0) {
                     g.grow_timer[i] = 0;
                     g.plot_states[i] = Grown;
                     cog_sprite_remove(g.grow_sprites[i]->id);
@@ -185,6 +190,17 @@ int32_t level_running(cog_state_info info) {
                         .layer=10
                     });
                     g.grown_sprites[i] = cog_sprite_get(id);
+                }
+            }
+
+            // Update water timer to tell if it is ready to be watered again
+            if(g.water_timer[i] > 0) {
+                g.water_timer[i] -= delta_millis;
+                
+                if(g.water_timer[i] <= 0) {
+                    cog_sprite_remove(g.watered_sprites[i]->id);
+                    g.water_timer[i] = 0;
+                    g.plot_states[i] = Planted;
                 }
             }
         }
@@ -246,9 +262,19 @@ int32_t level_running_keypress(cog_state_info info) {
                     },
                 });
                 g.watered_sprites[g.pos] = cog_sprite_get(id);
+                // Take some time off the clock
+                g.grow_timer[g.pos] -= WaterBenefitTime;
+                if(g.grow_timer[g.pos] < 0) g.grow_timer[g.pos] = 1; // Make it happen next check
+                g.water_timer[g.pos] = WaterTime;
             } else if(g.plot_states[g.pos] == Grown) {
                 cog_sprite_remove(g.grown_sprites[g.pos]->id);
                 g.plot_states[g.pos] = Idle;
+
+                // Remove water if it exists
+                if(g.water_timer > 0) {
+                    cog_sprite_remove(g.watered_sprites[g.pos]->id);
+                    g.water_timer[g.pos] = 0;
+                }
                 //TODO: Give some points
             }
         }
