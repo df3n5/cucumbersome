@@ -14,7 +14,7 @@
 #define DOffsetX 1.25*E
 #define ArrowOffsetX 2.5*E
 #define E 0.161  // Golden ratio
-#define GrowTime 10000  //ms
+#define GrowTime 3000  //ms
 
 typedef enum {
     Backwards,
@@ -24,7 +24,8 @@ typedef enum {
 typedef enum {
     Idle,
     Planted,
-    Watered
+    Watered,
+    Grown
 } plot_state;
 
 typedef struct {
@@ -37,9 +38,12 @@ typedef struct {
     int32_t pos;
     int32_t max_pos;
     direction player_dir;
+    //Plots
     plot_state plot_states[MaxPlots];
     int32_t grow_timer[MaxPlots];
     cog_sprite* grow_sprites[MaxPlots];
+    cog_sprite* grown_sprites[MaxPlots];
+    cog_sprite* watered_sprites[MaxPlots];
 } game;
 
 static cog_state_fsm* fsm;
@@ -160,6 +164,31 @@ int32_t load_level(cog_state_info info) {
 
 int32_t level_running(cog_state_info info) {
     //cog_debugf("running_level...");
+    uint32_t delta_millis = cog_time_delta_millis();
+    // State transitions for plants
+    for(int i = 0;i<MaxPlots;i++) {
+        if(g.plot_states[i] == Planted || g.plot_states[i] == Watered) {
+            if(g.grow_timer > 0) {
+                g.grow_timer[i] -= delta_millis;
+                if(g.grow_timer[i] < 0) {
+                    g.grow_timer[i] = 0;
+                    g.plot_states[i] = Grown;
+                    cog_sprite_remove(g.grow_sprites[i]->id);
+                    cog_sprite_id id = cog_sprite_add("../assets/images/planted_1.png");
+                    cog_sprite_set(id, (cog_sprite) {
+                        .dim=(cog_dim2) {
+                            .w=PlotW, .h=0.1
+                        },
+                        .pos=(cog_pos2) {
+                            .x=PlotOutlineX + (PlotW*2)*i, .y=0.1
+                        },
+                        .layer=10
+                    });
+                    g.grown_sprites[i] = cog_sprite_get(id);
+                }
+            }
+        }
+    }
     return State_running;
 }
 
@@ -204,6 +233,7 @@ int32_t level_running_keypress(cog_state_info info) {
                     },
                     .layer=10
                 });
+                g.grow_sprites[g.pos] = cog_sprite_get(id);
             } else if(g.plot_states[g.pos] == Planted) {
                 g.plot_states[g.pos] = Watered;
                 cog_sprite_id id = cog_sprite_add("../assets/images/plot_watered.png");
@@ -215,6 +245,11 @@ int32_t level_running_keypress(cog_state_info info) {
                         .x=PlotOutlineX + (PlotW*2)*g.pos, .y=0.1
                     },
                 });
+                g.watered_sprites[g.pos] = cog_sprite_get(id);
+            } else if(g.plot_states[g.pos] == Grown) {
+                cog_sprite_remove(g.grown_sprites[g.pos]->id);
+                g.plot_states[g.pos] = Idle;
+                //TODO: Give some points
             }
         }
     }
