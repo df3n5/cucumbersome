@@ -29,6 +29,17 @@ int32_t level_times[] = {
     30000
 };
 
+int32_t level_goals[] = {
+    2,
+    3,
+    4
+};
+
+int32_t plot_amounts[] = {
+    3,
+    4,
+    5
+};
 
 typedef enum {
     Backwards,
@@ -72,11 +83,10 @@ int32_t load_level(cog_state_info info) {
     cog_clear();
     cog_debugf("loading_level...");
     // Init game
-    g.level = 0;
     // TODO : Change based on level_no
-    g.nplots = 3;
+    g.nplots = plot_amounts[g.level];
     g.pos = 0;
-    g.max_pos = 2;
+    g.max_pos = plot_amounts[g.level]-1;
     g.player_dir = Frontwards;
     for(int i = 0; i < MaxPlots; i++) {
         g.plot_states[i] = Idle;
@@ -286,7 +296,6 @@ int32_t level_running(cog_state_info info) {
 
     // Lerp sky colour
     double t = 1.0 - (g.level_timer / (double)level_times[g.level]);
-    cog_debugf("t %lf", t);
     if(t<0.5) {
         t*=2.0;
         g.sky->col.r = lerp(0.968, 0.031, t);
@@ -320,7 +329,7 @@ int32_t level_running_keypress(cog_state_info info) {
                 /*g.pos = 0;*/
                 /*g.player_dir = Frontwards;*/
             /*}*/
-            cog_debugf("d pressed, pos is %d %d %d", g.pos, g.max_pos, g.pos == g.max_pos);
+            //cog_debugf("d pressed, pos is %d %d %d", g.pos, g.max_pos, g.pos == g.max_pos);
             double new_x = PlotOutlineX + ((PlotW * 2) * g.pos);
             g.plot_outline->pos.x = new_x;
             g.player->pos.x = new_x;
@@ -328,7 +337,7 @@ int32_t level_running_keypress(cog_state_info info) {
             g.arrow->pos.x = new_x + ArrowOffsetX;
         }
         if(key == ' ') {
-            cog_debugf("space pressed");
+            //cog_debugf("space pressed");
             if(g.plot_states[g.pos] == Idle) {
                 g.plot_states[g.pos] = Planted;
                 g.grow_timer[g.pos] = GrowTime;
@@ -380,11 +389,40 @@ int32_t level_running_keypress(cog_state_info info) {
 
 int32_t load_endscreen(cog_state_info info) {
     cog_clear();
+
+    cog_sprite_id bid = cog_sprite_add("../assets/images/end_back.png");
+    cog_sprite_set(bid, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=1.0, .h=1.0
+        },
+        .layer=2
+    });
+
+    cog_text_id id = cog_text_add();
+    cog_text_set(id, (cog_text) {
+        .scale = (cog_dim2) {.w=0.004, .h=0.004},
+        .dim = (cog_dim2) {.w=1.5, .h=0.003},
+        .pos = (cog_pos2) {.x=-1.0 + E, .y=4.4*E},
+        .col=(cog_color) {
+            .r=0,.g=0,.b=0,.a=1
+        },
+        .layer=5
+    });
+    cog_text_set_str(id, "Time to call it a night.\n\nHarvested: %d\n\nGoal: %d", g.score, level_goals[g.level]);
+
+    if(g.score >= level_goals[g.level]) {
+        g.level++; //Progress to next level
+    }
+
     return State_endscreen_running;
 }
 
 int32_t endscreen_running(cog_state_info info) {
     return State_endscreen_running;
+}
+
+int32_t endscreen_running_keypress(cog_state_info info) {
+    return State_start;
 }
 
 cog_state_transition transitions[] = {
@@ -393,6 +431,7 @@ cog_state_transition transitions[] = {
     {State_running, COG_E_KEYDOWN, &level_running_keypress},
     {State_endscreen_loading, Event_test, &load_endscreen},
     {State_endscreen_running, Event_test, &endscreen_running},
+    {State_endscreen_running, COG_E_KEYDOWN, &endscreen_running_keypress},
 };
 
 void main_loop(void) {
@@ -406,6 +445,7 @@ void main_loop(void) {
 }
 
 int main(int argc, char* argv[]) {
+    g.level = 0;
     cog_init(.window_w = 800,
              .window_h = 800,
              .fullscreen = false);
