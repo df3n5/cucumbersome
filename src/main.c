@@ -4,8 +4,10 @@
 
 #define State_start 1
 #define State_running 2
-#define State_end 3
-#define State_finish 4
+#define State_endscreen_loading 3
+#define State_endscreen_running 4
+#define State_end 5
+#define State_finish 6
 
 #define Event_test 1
 
@@ -19,6 +21,14 @@
 #define GrowTime 3000  //ms
 #define WaterTime 10000  //ms on how long between waterings
 #define WaterBenefitTime 10000  //ms on how much water gives you
+#define NLevels 3
+
+int32_t level_times[] = {
+    10000,
+    20000,
+    30000
+};
+
 
 typedef enum {
     Backwards,
@@ -34,7 +44,9 @@ typedef enum {
 
 typedef struct {
     int32_t level;
+    int32_t level_timer;
     int32_t nplots;
+    cog_rect* sky;
     cog_sprite* player;
     cog_sprite* plot_outline;
     cog_sprite* d_key;
@@ -57,6 +69,7 @@ static cog_state_fsm* fsm;
 static game g;
 
 int32_t load_level(cog_state_info info) {
+    cog_clear();
     cog_debugf("loading_level...");
     // Init game
     g.level = 0;
@@ -72,15 +85,27 @@ int32_t load_level(cog_state_info info) {
         g.grow_sprites[i] = 0;
     }
     g.score = 0;
+    g.level_timer = level_times[g.level];
 
+    cog_rect_id rid = cog_rect_add();
+    cog_rect_set(rid, (cog_rect) {
+        .dim=(cog_dim2) {
+            .w=1.0, .h=1.0
+        },
+        .col=(cog_color) {
+            .r=9,.g=9,.b=1,.a=1
+        },
+        .layer=1
+    });
+    g.sky = cog_rect_get(rid);
 
     cog_sprite_id bid = cog_sprite_add("../assets/images/game_back.png");
     cog_sprite_set(bid, (cog_sprite) {
         .dim=(cog_dim2) {
             .w=1.0, .h=1.0
         },
+        .layer=2
     });
-
 
     // Plots
     for(int i=0;i<g.nplots;i++) {
@@ -92,6 +117,7 @@ int32_t load_level(cog_state_info info) {
             .pos=(cog_pos2) {
                 .x=PlotOutlineX + (PlotW*2)*i, .y=0.1
             },
+            .layer=3
         });
     }
 
@@ -105,7 +131,7 @@ int32_t load_level(cog_state_info info) {
         .pos=(cog_pos2) {
             .x=PlotOutlineX, .y=0.1
         },
-        .layer=12
+        .layer=10
     });
 
     // Player
@@ -117,6 +143,7 @@ int32_t load_level(cog_state_info info) {
         .pos=(cog_pos2) {
             .x=-0.4, .y=-E
         },
+        .layer=4
     });
 
     // UI
@@ -128,6 +155,7 @@ int32_t load_level(cog_state_info info) {
         .pos=(cog_pos2) {
             .x=-2.5*E, .y=-4*E
         },
+        .layer=5
     });
 
     cog_text_id id = cog_text_add();
@@ -137,7 +165,8 @@ int32_t load_level(cog_state_info info) {
         .pos = (cog_pos2) {.x=1.25*E, .y=-4.4*E},
         .col=(cog_color) {
             .r=0,.g=0,.b=0,.a=1
-        }
+        },
+        .layer=5
     });
     cog_text_set_str(id, "plant");
 
@@ -150,6 +179,7 @@ int32_t load_level(cog_state_info info) {
         .pos=(cog_pos2) {
             .x=-2.5*E, .y=-5.5*E
         },
+        .layer=5
     });
     cog_text_id tid = cog_text_add();
     cog_text_set(tid, (cog_text) {
@@ -158,7 +188,8 @@ int32_t load_level(cog_state_info info) {
         .pos = (cog_pos2) {.x=1.25*E, .y=-6.0*E},
         .col=(cog_color) {
             .r=0,.g=0,.b=0,.a=1
-        }
+        },
+        .layer=5
     });
     cog_text_set_str(tid, "0");
     g.score_text = cog_text_get(tid);
@@ -173,6 +204,7 @@ int32_t load_level(cog_state_info info) {
         .pos=(cog_pos2) {
             .x=player->pos.x + DOffsetX, .y=player->pos.y
         },
+        .layer=5
     });
 
     cog_sprite_id r_id = cog_sprite_add("../assets/images/right_arrow.png");
@@ -183,6 +215,7 @@ int32_t load_level(cog_state_info info) {
         .pos=(cog_pos2) {
             .x=player->pos.x + ArrowOffsetX, .y=player->pos.y
         },
+        .layer=5
     });
 
     g.plot_outline = cog_sprite_get(plot_outline_id);
@@ -196,6 +229,12 @@ int32_t load_level(cog_state_info info) {
 void increment_score() {
     g.score++;
     cog_text_set_str(g.score_text->id, "%d", g.score);
+}
+
+double lerp(double y0, double y1, double x) {
+    double x0 = 0.0;
+    double x1 = 1.0;
+    return y0 + ((y1 - y0)*((x-x0)/(x1-x0)));
 }
 
 int32_t level_running(cog_state_info info) {
@@ -219,7 +258,7 @@ int32_t level_running(cog_state_info info) {
                         .pos=(cog_pos2) {
                             .x=PlotOutlineX + (PlotW*2)*i, .y=0.1
                         },
-                        .layer=10
+                        .layer=5
                     });
                     g.grown_sprites[i] = cog_sprite_get(id);
                 }
@@ -237,6 +276,29 @@ int32_t level_running(cog_state_info info) {
             }
         }
     }
+
+    // End game logic
+    g.level_timer -= delta_millis;
+    if(g.level_timer < 0) {
+        cog_debugf("End level");
+        return State_endscreen_loading;
+    }
+
+    // Lerp sky colour
+    double t = 1.0 - (g.level_timer / (double)level_times[g.level]);
+    cog_debugf("t %lf", t);
+    if(t<0.5) {
+        t*=2.0;
+        g.sky->col.r = lerp(0.968, 0.031, t);
+        g.sky->col.g = lerp(0.984, 0.18, t);
+        g.sky->col.b = lerp(1.0, 0.4196, t);
+    } else {
+        t = (t - 0.5) * 2.0;
+        g.sky->col.r = lerp(0.031, 0.0, t);
+        g.sky->col.g = lerp(0.18, 0.0, t);
+        g.sky->col.b = lerp(0.4196, 0.0, t);
+    }
+
     return State_running;
 }
 
@@ -279,7 +341,7 @@ int32_t level_running_keypress(cog_state_info info) {
                     .pos=(cog_pos2) {
                         .x=PlotOutlineX + (PlotW*2)*g.pos, .y=0.1
                     },
-                    .layer=10
+                    .layer=5
                 });
                 g.grow_sprites[g.pos] = cog_sprite_get(id);
             } else if(g.plot_states[g.pos] == Planted) {
@@ -292,6 +354,7 @@ int32_t level_running_keypress(cog_state_info info) {
                     .pos=(cog_pos2) {
                         .x=PlotOutlineX + (PlotW*2)*g.pos, .y=0.1
                     },
+                    .layer=5
                 });
                 g.watered_sprites[g.pos] = cog_sprite_get(id);
                 // Take some time off the clock
@@ -315,11 +378,21 @@ int32_t level_running_keypress(cog_state_info info) {
     return State_running;
 }
 
+int32_t load_endscreen(cog_state_info info) {
+    cog_clear();
+    return State_endscreen_running;
+}
+
+int32_t endscreen_running(cog_state_info info) {
+    return State_endscreen_running;
+}
 
 cog_state_transition transitions[] = {
     {State_start, Event_test, &load_level},
     {State_running, Event_test, &level_running},
-    {State_running, COG_E_KEYDOWN, &level_running_keypress}
+    {State_running, COG_E_KEYDOWN, &level_running_keypress},
+    {State_endscreen_loading, Event_test, &load_endscreen},
+    {State_endscreen_running, Event_test, &endscreen_running},
 };
 
 void main_loop(void) {
