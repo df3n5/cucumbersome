@@ -1,0 +1,3 @@
+[submodule "src/cog"]
+	path = src/cog
+	url = https://github.com/df3n5/cog.git
