@@ -408,7 +408,15 @@ int32_t load_endscreen(cog_state_info info) {
         },
         .layer=5
     });
-    cog_text_set_str(id, "Time to call it a night.\n\nHarvested: %d\n\nGoal: %d", g.score, level_goals[g.level]);
+    char* retry_text[] = {"retry", "continue to"};
+    int level = g.level;
+    int retry_index = 0;
+    if(g.score >= level_goals[g.level]) {
+        retry_index = 1;
+        level += 1;
+    }
+
+    cog_text_set_str(id, "Let's call it a  night.\n\n\nHarvested: %d\n\nGoal: %d\n\n\nPress enter to%s day %d", g.score, level_goals[g.level], retry_text[retry_index], level + 1);
 
     if(g.score >= level_goals[g.level]) {
         g.level++; //Progress to next level
@@ -422,7 +430,12 @@ int32_t endscreen_running(cog_state_info info) {
 }
 
 int32_t endscreen_running_keypress(cog_state_info info) {
-    return State_start;
+    uint32_t key = cog_input_key_code_pressed();
+    cog_debugf("Key is %d", key);
+    if(key == 13) {
+        return State_start;
+    }
+    return State_endscreen_running;
 }
 
 cog_state_transition transitions[] = {
