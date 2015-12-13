@@ -579,14 +579,6 @@ int32_t level_running_keypress(cog_state_info info) {
 int32_t load_endscreen(cog_state_info info) {
     cog_clear();
 
-    cog_sprite_id bid = cog_sprite_add("../assets/images/end_back.png");
-    cog_sprite_set(bid, (cog_sprite) {
-        .dim=(cog_dim2) {
-            .w=1.0, .h=1.0
-        },
-        .layer=2
-    });
-
     cog_text_id id = cog_text_add();
     cog_text_set(id, (cog_text) {
         .scale = (cog_dim2) {.w=0.004, .h=0.004},
@@ -610,6 +602,24 @@ int32_t load_endscreen(cog_state_info info) {
     if(g.score >= level_goals[g.level]) {
         g.level++; //Progress to next level
         g.won = true;
+    }
+
+    if(g.won) {
+        cog_sprite_id bid = cog_sprite_add("../assets/images/end_back_success.png");
+        cog_sprite_set(bid, (cog_sprite) {
+            .dim=(cog_dim2) {
+                .w=1.0, .h=1.0
+            },
+            .layer=2
+        });
+    } else {
+        cog_sprite_id bid = cog_sprite_add("../assets/images/end_back_fail.png");
+        cog_sprite_set(bid, (cog_sprite) {
+            .dim=(cog_dim2) {
+                .w=1.0, .h=1.0
+            },
+            .layer=2
+        });
     }
 
     return State_endscreen_running;
@@ -636,7 +646,7 @@ int32_t endscreen_running_keypress(cog_state_info info) {
 int32_t load_buyscreen(cog_state_info info) {
     cog_clear();
 
-    cog_sprite_id bid = cog_sprite_add("../assets/images/end_back.png");
+    cog_sprite_id bid = cog_sprite_add("../assets/images/end_back_success.png");
     cog_sprite_set(bid, (cog_sprite) {
         .dim=(cog_dim2) {
             .w=1.0, .h=1.0
@@ -722,8 +732,6 @@ int32_t load_buyscreen(cog_state_info info) {
         },
         .layer=3
     });
-
-
 
     if(g.score >= level_goals[g.level]) {
         g.level++; //Progress to next level
