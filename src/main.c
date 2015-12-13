@@ -317,7 +317,7 @@ int32_t level_running(cog_state_info info) {
             // Update water timer to tell if it is ready to be watered again
             if(g.water_timer[i] > 0) {
                 g.water_timer[i] -= delta_millis;
-                
+
                 if(g.water_timer[i] <= 0) {
                     cog_sprite_remove(g.watered_sprites[i]->id);
                     g.water_timer[i] = 0;
@@ -338,7 +338,7 @@ int32_t level_running(cog_state_info info) {
             cog_text_set_str(g.action_text->id, "water");
         }
     } else if (g.plot_states[g.pos] == Watered) {
-        cog_text_set_str(g.action_text->id, "");
+        cog_text_set_str(g.action_text->id, "water");
     } else if (g.plot_states[g.pos] == Grown) {
         cog_text_set_str(g.action_text->id, "pick");
     } else if (g.plot_states[g.pos] == Well) {
@@ -434,27 +434,33 @@ int32_t level_running_keypress(cog_state_info info) {
                     .layer=6
                 });
                 g.grow_sprites[g.pos] = cog_sprite_get(id);
-            } else if(g.plot_states[g.pos] == Planted) {
+            } else if(g.plot_states[g.pos] == Planted || g.plot_states[g.pos] == Watered) {
                 if(g.water_left > 0) {
                     g.water_left--;
-                    g.plot_states[g.pos] = Watered;
-                    cog_sprite_id id = cog_sprite_add("../assets/images/plot_watered.png");
-                    cog_sprite_set(id, (cog_sprite) {
-                        .dim=(cog_dim2) {
-                            .w=PlotW, .h=PlotH
-                        },
-                        .pos=(cog_pos2) {
-                            .x=PlotOutlineX + (PlotW*2)*g.pos, .y=PlotH
-                        },
-                        .layer=5
-                    });
-                    g.watered_sprites[g.pos] = cog_sprite_get(id);
-                    // Take some time off the clock
-                    g.grow_timer[g.pos] -= WaterBenefitTime;
-                    if(g.grow_timer[g.pos] < 0) g.grow_timer[g.pos] = 1; // Make it happen next check
-                    g.water_timer[g.pos] = WaterTime;
-                    g.water_timer[g.pos] -= cog_rand_int(0, RandRangeWaterTime); // Give some variety to this
-                    cog_debugf("Water time is now %d", g.water_timer[g.pos]);
+
+                    // Only add new sprite if something has changed
+                    if(g.plot_states[g.pos] == Planted) {
+                        cog_sprite_id id = cog_sprite_add("../assets/images/plot_watered.png");
+                        cog_sprite_set(id, (cog_sprite) {
+                            .dim=(cog_dim2) {
+                                .w=PlotW, .h=PlotH
+                            },
+                            .pos=(cog_pos2) {
+                                .x=PlotOutlineX + (PlotW*2)*g.pos, .y=PlotH
+                            },
+                            .layer=5
+                        });
+                        g.watered_sprites[g.pos] = cog_sprite_get(id);
+
+                        g.plot_states[g.pos] = Watered;
+                        // Take some time off the clock
+                        g.grow_timer[g.pos] -= WaterBenefitTime;
+                        if(g.grow_timer[g.pos] < 0) g.grow_timer[g.pos] = 1; // Make it happen next check
+                        g.water_timer[g.pos] = WaterTime;
+                        g.water_timer[g.pos] -= cog_rand_int(0, RandRangeWaterTime); // Give some variety to this
+                        cog_debugf("Water time is now %d", g.water_timer[g.pos]);
+                    }
+
                 }
             } else if(g.plot_states[g.pos] == Grown) {
                 cog_sprite_remove(g.grown_sprites[g.pos]->id);
