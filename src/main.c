@@ -16,6 +16,8 @@
 #define PlotOutlineX -0.4
 #define PlotW 0.1
 #define PlotH 0.04
+#define PlotHWell 0.14
+#define PlotHOffsetWell 0.10
 #define DOffsetX 1.25*E
 #define ArrowOffsetX 2.5*E
 #define E 0.161  // Golden ratio
@@ -25,6 +27,7 @@
 #define NLevels 3
 #define RandRangeWaterTime 1000  // ms
 #define RandRangeGrowTime 5000  // ms
+#define WellWater 2  // # waters in the well
 
 int32_t level_times[] = {
     100000,
@@ -53,7 +56,8 @@ typedef enum {
     Idle,
     Planted,
     Watered,
-    Grown
+    Grown,
+    Well
 } plot_state;
 
 typedef struct {
@@ -72,6 +76,7 @@ typedef struct {
     int32_t score;
     cog_text* score_text;
     cog_text* action_text;
+    int32_t water_left;
     //Plots
     plot_state plot_states[MaxPlots];
     int32_t grow_timer[MaxPlots];
@@ -91,7 +96,7 @@ int32_t load_level(cog_state_info info) {
     // TODO : Change based on level_no
     g.nplots = plot_amounts[g.level];
     g.pos = 0;
-    g.max_pos = plot_amounts[g.level]-1;
+    g.max_pos = plot_amounts[g.level];
     g.player_dir = Frontwards;
     for(int i = 0; i < MaxPlots; i++) {
         g.plot_states[i] = Idle;
@@ -99,8 +104,10 @@ int32_t load_level(cog_state_info info) {
         g.water_timer[i] = 0;
         g.grow_sprites[i] = 0;
     }
+    g.plot_states[0] = Well;  // First thing is a well.
     g.score = 0;
     g.level_timer = level_times[g.level];
+    g.water_left = 0;
 
     cog_rect_id rid = cog_rect_add();
     cog_rect_set(rid, (cog_rect) {
@@ -145,7 +152,7 @@ int32_t load_level(cog_state_info info) {
                 .w=PlotW, .h=PlotH
             },
             .pos=(cog_pos2) {
-                .x=PlotOutlineX + (PlotW*2)*i, .y=PlotH
+                .x=PlotOutlineX + (PlotW*2)*(i+1), .y=PlotH
             },
             .layer=3
         });
@@ -157,7 +164,7 @@ int32_t load_level(cog_state_info info) {
             .w=0.15, .h=0.15
         },
         .pos=(cog_pos2) {
-            .x=-0.6, .y=0.08
+            .x=-0.39, .y=0.08
         },
         .layer=10
     });
@@ -168,10 +175,10 @@ int32_t load_level(cog_state_info info) {
     double w = 0.1;
     cog_sprite_set(plot_outline_id, (cog_sprite) {
         .dim=(cog_dim2) {
-            .w=w, .h=PlotH
+            .w=w, .h=PlotHWell
         },
         .pos=(cog_pos2) {
-            .x=PlotOutlineX, .y=PlotH
+            .x=PlotOutlineX, .y=PlotHOffsetWell
         },
         .layer=10
     });
@@ -325,11 +332,17 @@ int32_t level_running(cog_state_info info) {
     if(g.plot_states[g.pos] == Idle) {
         cog_text_set_str(g.action_text->id, "plant");
     } else if (g.plot_states[g.pos] == Planted) {
-        cog_text_set_str(g.action_text->id, "water");
+        if(g.water_left == 0) {
+            cog_text_set_str(g.action_text->id, "no water");
+        } else {
+            cog_text_set_str(g.action_text->id, "water");
+        }
     } else if (g.plot_states[g.pos] == Watered) {
         cog_text_set_str(g.action_text->id, "");
     } else if (g.plot_states[g.pos] == Grown) {
         cog_text_set_str(g.action_text->id, "pick");
+    } else if (g.plot_states[g.pos] == Well) {
+        cog_text_set_str(g.action_text->id, "fill water");
     }
 
     // End game logic
@@ -390,12 +403,20 @@ int32_t level_running_keypress(cog_state_info info) {
             //cog_debugf("d pressed, pos is %d %d %d", g.pos, g.max_pos, g.pos == g.max_pos);
             double new_x = PlotOutlineX + ((PlotW * 2) * g.pos);
             g.plot_outline->pos.x = new_x;
+            if(g.plot_states[g.pos] == Well) {
+                g.plot_outline->pos.y = PlotHOffsetWell;
+                g.plot_outline->dim.h = PlotHWell;
+            } else {
+                g.plot_outline->pos.y = PlotH;
+                g.plot_outline->dim.h = PlotH;
+            }
+            g.plot_outline->pos.x = new_x;
             g.player->pos.x = new_x;
             g.d_key->pos.x = new_x + DOffsetX;
             g.arrow->pos.x = new_x + ArrowOffsetX;
         }
         if(key == ' ') {
-            //cog_debugf("space pressed");
+            cog_debugf("space pressed on %d in state %d", g.pos, g.plot_states[g.pos]);
             if(g.plot_states[g.pos] == Idle) {
                 g.plot_states[g.pos] = Planted;
                 g.grow_timer[g.pos] = GrowTime;
@@ -414,24 +435,27 @@ int32_t level_running_keypress(cog_state_info info) {
                 });
                 g.grow_sprites[g.pos] = cog_sprite_get(id);
             } else if(g.plot_states[g.pos] == Planted) {
-                g.plot_states[g.pos] = Watered;
-                cog_sprite_id id = cog_sprite_add("../assets/images/plot_watered.png");
-                cog_sprite_set(id, (cog_sprite) {
-                    .dim=(cog_dim2) {
-                        .w=PlotW, .h=PlotH
-                    },
-                    .pos=(cog_pos2) {
-                        .x=PlotOutlineX + (PlotW*2)*g.pos, .y=PlotH
-                    },
-                    .layer=5
-                });
-                g.watered_sprites[g.pos] = cog_sprite_get(id);
-                // Take some time off the clock
-                g.grow_timer[g.pos] -= WaterBenefitTime;
-                if(g.grow_timer[g.pos] < 0) g.grow_timer[g.pos] = 1; // Make it happen next check
-                g.water_timer[g.pos] = WaterTime;
-                g.water_timer[g.pos] -= cog_rand_int(0, RandRangeWaterTime); // Give some variety to this
-                cog_debugf("Water time is now %d", g.water_timer[g.pos]);
+                if(g.water_left > 0) {
+                    g.water_left--;
+                    g.plot_states[g.pos] = Watered;
+                    cog_sprite_id id = cog_sprite_add("../assets/images/plot_watered.png");
+                    cog_sprite_set(id, (cog_sprite) {
+                        .dim=(cog_dim2) {
+                            .w=PlotW, .h=PlotH
+                        },
+                        .pos=(cog_pos2) {
+                            .x=PlotOutlineX + (PlotW*2)*g.pos, .y=PlotH
+                        },
+                        .layer=5
+                    });
+                    g.watered_sprites[g.pos] = cog_sprite_get(id);
+                    // Take some time off the clock
+                    g.grow_timer[g.pos] -= WaterBenefitTime;
+                    if(g.grow_timer[g.pos] < 0) g.grow_timer[g.pos] = 1; // Make it happen next check
+                    g.water_timer[g.pos] = WaterTime;
+                    g.water_timer[g.pos] -= cog_rand_int(0, RandRangeWaterTime); // Give some variety to this
+                    cog_debugf("Water time is now %d", g.water_timer[g.pos]);
+                }
             } else if(g.plot_states[g.pos] == Grown) {
                 cog_sprite_remove(g.grown_sprites[g.pos]->id);
                 g.plot_states[g.pos] = Idle;
@@ -442,6 +466,8 @@ int32_t level_running_keypress(cog_state_info info) {
                     g.water_timer[g.pos] = 0;
                 }
                 increment_score();
+            } else if(g.plot_states[g.pos] == Well) {
+                g.water_left = WellWater;
             }
         }
     }
