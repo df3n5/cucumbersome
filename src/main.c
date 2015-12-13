@@ -15,6 +15,7 @@
 #define MaxPlots 10
 #define PlotOutlineX -0.4
 #define PlotW 0.1
+#define PlotH 0.04
 #define DOffsetX 1.25*E
 #define ArrowOffsetX 2.5*E
 #define E 0.161  // Golden ratio
@@ -127,8 +128,11 @@ int32_t load_level(cog_state_info info) {
 
     cog_sprite_id bid = cog_sprite_add("../assets/images/game_back.png");
     cog_sprite_set(bid, (cog_sprite) {
+        .pos=(cog_pos2) {
+            .x=0.0, .y=-0.3
+        },
         .dim=(cog_dim2) {
-            .w=1.0, .h=1.0
+            .w=1.0, .h=0.7
         },
         .layer=2
     });
@@ -138,24 +142,36 @@ int32_t load_level(cog_state_info info) {
         cog_sprite_id id = cog_sprite_add("../assets/images/plot.png");
         cog_sprite_set(id, (cog_sprite) {
             .dim=(cog_dim2) {
-                .w=PlotW, .h=0.1
+                .w=PlotW, .h=PlotH
             },
             .pos=(cog_pos2) {
-                .x=PlotOutlineX + (PlotW*2)*i, .y=0.1
+                .x=PlotOutlineX + (PlotW*2)*i, .y=PlotH
             },
             .layer=3
         });
     }
+    // Well
+    cog_sprite_id well_id = cog_sprite_add("../assets/images/well.png");
+    cog_sprite_set(well_id, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=0.15, .h=0.15
+        },
+        .pos=(cog_pos2) {
+            .x=-0.6, .y=0.08
+        },
+        .layer=10
+    });
+
 
     // Plot outline
     cog_sprite_id plot_outline_id = cog_sprite_add("../assets/images/plot_outline.png");
     double w = 0.1;
     cog_sprite_set(plot_outline_id, (cog_sprite) {
         .dim=(cog_dim2) {
-            .w=w, .h=0.1
+            .w=w, .h=PlotH
         },
         .pos=(cog_pos2) {
-            .x=PlotOutlineX, .y=0.1
+            .x=PlotOutlineX, .y=PlotH
         },
         .layer=10
     });
@@ -188,7 +204,7 @@ int32_t load_level(cog_state_info info) {
     cog_text_set(id, (cog_text) {
         .scale = (cog_dim2) {.w=0.004, .h=0.004},
         .dim = (cog_dim2) {.w=2.0, .h=0.003},
-        .pos = (cog_pos2) {.x=1.25*E, .y=-4.4*E},
+        .pos = (cog_pos2) {.x=0*E, .y=-4.4*E},
         .col=(cog_color) {
             .r=0,.g=0,.b=0,.a=1
         },
@@ -212,7 +228,7 @@ int32_t load_level(cog_state_info info) {
     cog_text_set(tid, (cog_text) {
         .scale = (cog_dim2) {.w=0.004, .h=0.004},
         .dim = (cog_dim2) {.w=2.0, .h=0.003},
-        .pos = (cog_pos2) {.x=1.25*E, .y=-6.0*E},
+        .pos = (cog_pos2) {.x=0*E, .y=-6.0*E},
         .col=(cog_color) {
             .r=0,.g=0,.b=0,.a=1
         },
@@ -402,10 +418,10 @@ int32_t level_running_keypress(cog_state_info info) {
                 cog_sprite_id id = cog_sprite_add("../assets/images/plot_watered.png");
                 cog_sprite_set(id, (cog_sprite) {
                     .dim=(cog_dim2) {
-                        .w=PlotW, .h=0.1
+                        .w=PlotW, .h=PlotH
                     },
                     .pos=(cog_pos2) {
-                        .x=PlotOutlineX + (PlotW*2)*g.pos, .y=0.1
+                        .x=PlotOutlineX + (PlotW*2)*g.pos, .y=PlotH
                     },
                     .layer=5
                 });
