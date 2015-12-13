@@ -70,6 +70,7 @@ typedef struct {
     direction player_dir;
     int32_t score;
     cog_text* score_text;
+    cog_text* action_text;
     //Plots
     plot_state plot_states[MaxPlots];
     int32_t grow_timer[MaxPlots];
@@ -194,6 +195,7 @@ int32_t load_level(cog_state_info info) {
         .layer=5
     });
     cog_text_set_str(id, "plant");
+    g.action_text = cog_text_get(id);
 
     // Score UI
     cog_sprite_id cucumber_id = cog_sprite_add("../assets/images/cucumber.png");
@@ -300,6 +302,18 @@ int32_t level_running(cog_state_info info) {
                 }
             }
         }
+    }
+
+
+    // Change action text based on state of plot player is on
+    if(g.plot_states[g.pos] == Idle) {
+        cog_text_set_str(g.action_text->id, "plant");
+    } else if (g.plot_states[g.pos] == Planted) {
+        cog_text_set_str(g.action_text->id, "water");
+    } else if (g.plot_states[g.pos] == Watered) {
+        cog_text_set_str(g.action_text->id, "");
+    } else if (g.plot_states[g.pos] == Grown) {
+        cog_text_set_str(g.action_text->id, "pick");
     }
 
     // End game logic
