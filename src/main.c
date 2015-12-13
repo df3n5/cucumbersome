@@ -18,13 +18,15 @@
 #define DOffsetX 1.25*E
 #define ArrowOffsetX 2.5*E
 #define E 0.161  // Golden ratio
-#define GrowTime 3000  //ms
-#define WaterTime 10000  //ms on how long between waterings
-#define WaterBenefitTime 10000  //ms on how much water gives you
+#define GrowTime 10000  //ms
+#define WaterTime 5000  //ms on how long between waterings
+#define WaterBenefitTime 3000  //ms on how much water gives you
 #define NLevels 3
+#define RandRangeWaterTime 1000  // ms
+#define RandRangeGrowTime 5000  // ms
 
 int32_t level_times[] = {
-    10000,
+    100000,
     20000,
     30000
 };
@@ -367,6 +369,8 @@ int32_t level_running_keypress(cog_state_info info) {
             if(g.plot_states[g.pos] == Idle) {
                 g.plot_states[g.pos] = Planted;
                 g.grow_timer[g.pos] = GrowTime;
+                g.grow_timer[g.pos] -= cog_rand_int(0, RandRangeGrowTime);
+                cog_debugf("Grow time is now %d", g.grow_timer[g.pos]);
 
                 cog_sprite_id id = cog_sprite_add("../assets/images/planted_0.png");
                 cog_sprite_set(id, (cog_sprite) {
@@ -376,7 +380,7 @@ int32_t level_running_keypress(cog_state_info info) {
                     .pos=(cog_pos2) {
                         .x=PlotOutlineX + (PlotW*2)*g.pos, .y=0.1
                     },
-                    .layer=5
+                    .layer=6
                 });
                 g.grow_sprites[g.pos] = cog_sprite_get(id);
             } else if(g.plot_states[g.pos] == Planted) {
@@ -396,6 +400,8 @@ int32_t level_running_keypress(cog_state_info info) {
                 g.grow_timer[g.pos] -= WaterBenefitTime;
                 if(g.grow_timer[g.pos] < 0) g.grow_timer[g.pos] = 1; // Make it happen next check
                 g.water_timer[g.pos] = WaterTime;
+                g.water_timer[g.pos] -= cog_rand_int(0, RandRangeWaterTime); // Give some variety to this
+                cog_debugf("Water time is now %d", g.water_timer[g.pos]);
             } else if(g.plot_states[g.pos] == Grown) {
                 cog_sprite_remove(g.grown_sprites[g.pos]->id);
                 g.plot_states[g.pos] = Idle;
@@ -487,7 +493,8 @@ int main(int argc, char* argv[]) {
     g.level = 0;
     cog_init(.window_w = 800,
              .window_h = 800,
-             .fullscreen = false);
+             .fullscreen = false,
+             .debug = true);
     fsm = cog_state_fsm_alloc();
     cog_state_fsm_add_transitions(fsm, transitions,
                                   (sizeof(transitions) /
