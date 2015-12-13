@@ -62,6 +62,7 @@ typedef struct {
     cog_sprite* plot_outline;
     cog_sprite* d_key;
     cog_sprite* arrow;
+    cog_sprite* sun;
     int32_t pos;
     int32_t max_pos;
     direction player_dir;
@@ -108,6 +109,18 @@ int32_t load_level(cog_state_info info) {
         .layer=1
     });
     g.sky = cog_rect_get(rid);
+
+    cog_sprite_id sid = cog_sprite_add("../assets/images/sun.png");
+    cog_sprite_set(sid, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=E, .h=E
+        },
+        .pos=(cog_pos2) {
+            .x=0, .y=0
+        },
+        .layer=2
+    });
+    g.sun = cog_sprite_get(sid);
 
     cog_sprite_id bid = cog_sprite_add("../assets/images/game_back.png");
     cog_sprite_set(bid, (cog_sprite) {
@@ -294,8 +307,20 @@ int32_t level_running(cog_state_info info) {
         return State_endscreen_loading;
     }
 
-    // Lerp sky colour
+    // get time as value between 0 and 1
     double t = 1.0 - (g.level_timer / (double)level_times[g.level]);
+
+    // Move sun
+    double ratio = 0.91;
+    double angle = lerp((COG_PI*ratio), (0.09*COG_PI), t);
+    g.sun->pos.x = 0.8 * cog_math_cosf(angle);
+    g.sun->pos.y = 0.8 * cog_math_sinf(angle);
+
+    // Lerp sky colour
+    g.sky->col.r = lerp(0.968, 0.031, t);
+    g.sky->col.g = lerp(0.984, 0.18, t);
+    g.sky->col.b = lerp(1.0, 0.4196, t);
+/*
     if(t<0.5) {
         t*=2.0;
         g.sky->col.r = lerp(0.968, 0.031, t);
@@ -307,6 +332,7 @@ int32_t level_running(cog_state_info info) {
         g.sky->col.g = lerp(0.18, 0.0, t);
         g.sky->col.b = lerp(0.4196, 0.0, t);
     }
+*/
 
     return State_running;
 }
