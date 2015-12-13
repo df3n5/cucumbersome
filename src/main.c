@@ -33,7 +33,7 @@
 
 
 int32_t level_times[] = {
-    1000,
+    10000,
     20000,
     30000
 };
@@ -87,6 +87,8 @@ typedef struct {
     int32_t well_water;  // # waters in the well
     int32_t seed_amount;  // # seeds can carry at once
     bool won;
+    cog_text* water_text;
+    cog_text* seeds_text;
     //Plots
     plot_state plot_states[MaxPlots];
     int32_t grow_timer[MaxPlots];
@@ -214,7 +216,7 @@ int32_t load_level(cog_state_info info) {
             .w=0.1, .h=0.1
         },
         .pos=(cog_pos2) {
-            .x=-0.4, .y=-E
+            .x=PlotOutlineX, .y=-E
         },
         .layer=4
     });
@@ -280,6 +282,57 @@ int32_t load_level(cog_state_info info) {
         },
         .layer=5
     });
+
+    // Status of 2 resources
+
+    cog_sprite_id water_id = cog_sprite_add("../assets/images/watering_can.png");
+    cog_sprite_set(water_id, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=0.3*E, .h=0.3*E
+        },
+        .pos=(cog_pos2) {
+            .x=player->pos.x-0.1*E, .y=player->pos.y-1.3*E
+        },
+        .layer=5
+    });
+    cog_sprite* water = cog_sprite_get(water_id);
+    cog_text_id water_tid = cog_text_add();
+    cog_text_set(water_tid, (cog_text) {
+        .scale = (cog_dim2) {.w=0.001, .h=0.001},
+        .dim = (cog_dim2) {.w=2.0, .h=0.003},
+        .pos = (cog_pos2) {.x=player->pos.x+0.2*E, .y=water->pos.y-0.15*E},
+        .col=(cog_color) {
+            .r=0,.g=0,.b=0,.a=1
+        },
+        .layer=10
+    });
+    cog_text_set_str(water_tid, "0");
+    g.water_text = cog_text_get(water_tid);
+
+    cog_sprite_id seeds2_id = cog_sprite_add("../assets/images/seeds.png");
+    cog_sprite_set(seeds2_id, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=0.5*E, .h=0.5*E
+        },
+        .pos=(cog_pos2) {
+            .x=player->pos.x, .y=player->pos.y-2*E
+        },
+        .layer=5
+    });
+
+    cog_sprite* seeds = cog_sprite_get(seeds2_id);
+    cog_text_id seeds_tid = cog_text_add();
+    cog_text_set(seeds_tid, (cog_text) {
+        .scale = (cog_dim2) {.w=0.001, .h=0.001},
+        .dim = (cog_dim2) {.w=2.0, .h=0.003},
+        .pos = (cog_pos2) {.x=seeds->pos.x+0.2*E, .y=seeds->pos.y-0.1*E},
+        .col=(cog_color) {
+            .r=0,.g=0,.b=0,.a=1
+        },
+        .layer=10
+    });
+    cog_text_set_str(seeds_tid, "0");
+    g.seeds_text = cog_text_get(seeds_tid);
 
     cog_sprite_id r_id = cog_sprite_add("../assets/images/right_arrow.png");
     cog_sprite_set(r_id, (cog_sprite) {
@@ -384,6 +437,9 @@ int32_t level_running(cog_state_info info) {
         cog_debugf("End level");
         return State_endscreen_loading;
     }
+
+    cog_text_set_str(g.seeds_text->id, "%d", g.seeds_left);
+    cog_text_set_str(g.water_text->id, "%d", g.water_left);
 
     // get time as value between 0 and 1
     double t = 1.0 - (g.level_timer / (double)level_times[g.level]);
@@ -567,7 +623,7 @@ int32_t endscreen_running_keypress(cog_state_info info) {
     uint32_t key = cog_input_key_code_pressed();
     cog_debugf("Key is %d", key);
     if(key == 13) {
-        if(!g.won) {
+        if(g.won) {
             // TODO :Credits logic here
             return State_buyscreen_loading;
         } else {
