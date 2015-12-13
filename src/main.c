@@ -6,14 +6,17 @@
 #define State_running 2
 #define State_endscreen_loading 3
 #define State_endscreen_running 4
-#define State_end 5
-#define State_finish 6
+#define State_buyscreen_loading 5
+#define State_buyscreen_running 6
+#define State_end 7
+#define State_finish 8
 
 #define Event_test 1
 
 // Constants
 #define MaxPlots 10
-#define PlotOutlineX -0.4
+#define PlotOutlineX -0.6
+#define UITextXOffset -0.05
 #define PlotW 0.1
 #define PlotH 0.04
 #define PlotHWell 0.14
@@ -27,10 +30,10 @@
 #define NLevels 3
 #define RandRangeWaterTime 1000  // ms
 #define RandRangeGrowTime 5000  // ms
-#define WellWater 2  // # waters in the well
+
 
 int32_t level_times[] = {
-    100000,
+    1000,
     20000,
     30000
 };
@@ -41,11 +44,13 @@ int32_t level_goals[] = {
     4
 };
 
+/*
 int32_t plot_amounts[] = {
     3,
     4,
     5
 };
+*/
 
 typedef enum {
     Backwards,
@@ -57,7 +62,8 @@ typedef enum {
     Planted,
     Watered,
     Grown,
-    Well
+    Well,
+    Seeds
 } plot_state;
 
 typedef struct {
@@ -77,6 +83,10 @@ typedef struct {
     cog_text* score_text;
     cog_text* action_text;
     int32_t water_left;
+    int32_t seeds_left;
+    int32_t well_water;  // # waters in the well
+    int32_t seed_amount;  // # seeds can carry at once
+    bool won;
     //Plots
     plot_state plot_states[MaxPlots];
     int32_t grow_timer[MaxPlots];
@@ -93,10 +103,9 @@ int32_t load_level(cog_state_info info) {
     cog_clear();
     cog_debugf("loading_level...");
     // Init game
-    // TODO : Change based on level_no
-    g.nplots = plot_amounts[g.level];
     g.pos = 0;
-    g.max_pos = plot_amounts[g.level];
+    cog_debugf("nplots %d", g.nplots);
+    g.max_pos = g.nplots+1;
     g.player_dir = Frontwards;
     for(int i = 0; i < MaxPlots; i++) {
         g.plot_states[i] = Idle;
@@ -104,10 +113,12 @@ int32_t load_level(cog_state_info info) {
         g.water_timer[i] = 0;
         g.grow_sprites[i] = 0;
     }
-    g.plot_states[0] = Well;  // First thing is a well.
+    g.plot_states[0] = Seeds;  // First thing is seeds
+    g.plot_states[1] = Well;  // Second thing is a well.
     g.score = 0;
     g.level_timer = level_times[g.level];
     g.water_left = 0;
+    g.seeds_left = 0;
 
     cog_rect_id rid = cog_rect_add();
     cog_rect_set(rid, (cog_rect) {
@@ -146,13 +157,13 @@ int32_t load_level(cog_state_info info) {
 
     // Plots
     for(int i=0;i<g.nplots;i++) {
-        cog_sprite_id id = cog_sprite_add("../assets/images/plot.png");
+        cog_sprite_id id = cog_sprite_add("../assets/images/plot2.png");
         cog_sprite_set(id, (cog_sprite) {
             .dim=(cog_dim2) {
                 .w=PlotW, .h=PlotH
             },
             .pos=(cog_pos2) {
-                .x=PlotOutlineX + (PlotW*2)*(i+1), .y=PlotH
+                .x=PlotOutlineX + (PlotW*2)*(i+2), .y=PlotH
             },
             .layer=3
         });
@@ -168,6 +179,19 @@ int32_t load_level(cog_state_info info) {
         },
         .layer=10
     });
+
+    // Seeds 
+    cog_sprite_id seeds_id = cog_sprite_add("../assets/images/seeds.png");
+    cog_sprite_set(seeds_id, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=0.15, .h=0.15
+        },
+        .pos=(cog_pos2) {
+            .x=-0.59, .y=0.08
+        },
+        .layer=10
+    });
+
 
 
     // Plot outline
@@ -211,7 +235,7 @@ int32_t load_level(cog_state_info info) {
     cog_text_set(id, (cog_text) {
         .scale = (cog_dim2) {.w=0.004, .h=0.004},
         .dim = (cog_dim2) {.w=2.0, .h=0.003},
-        .pos = (cog_pos2) {.x=0*E, .y=-4.4*E},
+        .pos = (cog_pos2) {.x=UITextXOffset, .y=-4.4*E},
         .col=(cog_color) {
             .r=0,.g=0,.b=0,.a=1
         },
@@ -235,7 +259,7 @@ int32_t load_level(cog_state_info info) {
     cog_text_set(tid, (cog_text) {
         .scale = (cog_dim2) {.w=0.004, .h=0.004},
         .dim = (cog_dim2) {.w=2.0, .h=0.003},
-        .pos = (cog_pos2) {.x=0*E, .y=-6.0*E},
+        .pos = (cog_pos2) {.x=UITextXOffset, .y=-6.0*E},
         .col=(cog_color) {
             .r=0,.g=0,.b=0,.a=1
         },
@@ -329,20 +353,29 @@ int32_t level_running(cog_state_info info) {
 
 
     // Change action text based on state of plot player is on
+    g.action_text->col = (cog_color) {.r=0.0, .g=0, .b=0, .a=1};  // default colour
+    //cog_debugf("pos : %d", g.plot_states[g.pos]);
     if(g.plot_states[g.pos] == Idle) {
-        cog_text_set_str(g.action_text->id, "plant");
-    } else if (g.plot_states[g.pos] == Planted) {
-        if(g.water_left == 0) {
-            cog_text_set_str(g.action_text->id, "no water");
+        if(g.seeds_left > 0) {
+            cog_text_set_str(g.action_text->id, "plant");
         } else {
-            cog_text_set_str(g.action_text->id, "water");
+            cog_text_set_str(g.action_text->id, "no seeds");
+            g.action_text->col = (cog_color) {.r=1.0, .g=0, .b=0, .a=1};
         }
-    } else if (g.plot_states[g.pos] == Watered) {
-        cog_text_set_str(g.action_text->id, "water");
+    } else if (g.plot_states[g.pos] == Watered || g.plot_states[g.pos] == Planted) {
+        if(g.water_left > 0) {
+            cog_text_set_str(g.action_text->id, "water");
+        } else {
+            cog_debugf("NO Water_left %d", g.water_left);
+            cog_text_set_str(g.action_text->id, "no water");
+            g.action_text->col = (cog_color) {.r=1.0, .g=0, .b=0, .a=1};
+        }
     } else if (g.plot_states[g.pos] == Grown) {
         cog_text_set_str(g.action_text->id, "pick");
     } else if (g.plot_states[g.pos] == Well) {
         cog_text_set_str(g.action_text->id, "fill water");
+    } else if (g.plot_states[g.pos] == Seeds) {
+        cog_text_set_str(g.action_text->id, "get seeds");
     }
 
     // End game logic
@@ -403,7 +436,7 @@ int32_t level_running_keypress(cog_state_info info) {
             //cog_debugf("d pressed, pos is %d %d %d", g.pos, g.max_pos, g.pos == g.max_pos);
             double new_x = PlotOutlineX + ((PlotW * 2) * g.pos);
             g.plot_outline->pos.x = new_x;
-            if(g.plot_states[g.pos] == Well) {
+            if(g.plot_states[g.pos] == Well || g.plot_states[g.pos] == Seeds) {
                 g.plot_outline->pos.y = PlotHOffsetWell;
                 g.plot_outline->dim.h = PlotHWell;
             } else {
@@ -418,25 +451,29 @@ int32_t level_running_keypress(cog_state_info info) {
         if(key == ' ') {
             cog_debugf("space pressed on %d in state %d", g.pos, g.plot_states[g.pos]);
             if(g.plot_states[g.pos] == Idle) {
-                g.plot_states[g.pos] = Planted;
-                g.grow_timer[g.pos] = GrowTime;
-                g.grow_timer[g.pos] -= cog_rand_int(0, RandRangeGrowTime);
-                cog_debugf("Grow time is now %d", g.grow_timer[g.pos]);
+                if(g.seeds_left > 0) {
+                    g.seeds_left--;
+                    g.plot_states[g.pos] = Planted;
+                    g.grow_timer[g.pos] = GrowTime;
+                    g.grow_timer[g.pos] -= cog_rand_int(0, RandRangeGrowTime);
+                    cog_debugf("Grow time is now %d", g.grow_timer[g.pos]);
 
-                cog_sprite_id id = cog_sprite_add("../assets/images/plantedv2_0.png");
-                cog_sprite_set(id, (cog_sprite) {
-                    .dim=(cog_dim2) {
-                        .w=PlotW, .h=0.1
-                    },
-                    .pos=(cog_pos2) {
-                        .x=PlotOutlineX + (PlotW*2)*g.pos, .y=0.1
-                    },
-                    .layer=6
-                });
-                g.grow_sprites[g.pos] = cog_sprite_get(id);
+                    cog_sprite_id id = cog_sprite_add("../assets/images/plantedv2_0.png");
+                    cog_sprite_set(id, (cog_sprite) {
+                        .dim=(cog_dim2) {
+                            .w=PlotW, .h=0.1
+                        },
+                        .pos=(cog_pos2) {
+                            .x=PlotOutlineX + (PlotW*2)*g.pos, .y=0.1
+                        },
+                        .layer=6
+                    });
+                    g.grow_sprites[g.pos] = cog_sprite_get(id);
+                }
             } else if(g.plot_states[g.pos] == Planted || g.plot_states[g.pos] == Watered) {
                 if(g.water_left > 0) {
                     g.water_left--;
+                    cog_debugf("water_left : %d", g.water_left);
 
                     // Only add new sprite if something has changed
                     if(g.plot_states[g.pos] == Planted) {
@@ -473,7 +510,9 @@ int32_t level_running_keypress(cog_state_info info) {
                 }
                 increment_score();
             } else if(g.plot_states[g.pos] == Well) {
-                g.water_left = WellWater;
+                g.water_left = g.well_water;
+            } else if(g.plot_states[g.pos] == Seeds) {
+                g.seeds_left = g.seed_amount;
             }
         }
     }
@@ -511,9 +550,10 @@ int32_t load_endscreen(cog_state_info info) {
     }
 
     cog_text_set_str(id, "Let's call it a  night.\n\n\nHarvested: %d\n\nGoal: %d\n\n\nPress enter to%s day %d", g.score, level_goals[g.level], retry_text[retry_index], level + 1);
-
+    g.won = false;
     if(g.score >= level_goals[g.level]) {
         g.level++; //Progress to next level
+        g.won = true;
     }
 
     return State_endscreen_running;
@@ -527,18 +567,145 @@ int32_t endscreen_running_keypress(cog_state_info info) {
     uint32_t key = cog_input_key_code_pressed();
     cog_debugf("Key is %d", key);
     if(key == 13) {
-        return State_start;
+        if(!g.won) {
+            // TODO :Credits logic here
+            return State_buyscreen_loading;
+        } else {
+            return State_start;
+        }
     }
     return State_endscreen_running;
 }
 
+int32_t load_buyscreen(cog_state_info info) {
+    cog_clear();
+
+    cog_sprite_id bid = cog_sprite_add("../assets/images/end_back.png");
+    cog_sprite_set(bid, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=1.0, .h=1.0
+        },
+        .layer=2
+    });
+
+    cog_text_id id = cog_text_add();
+    cog_text_set(id, (cog_text) {
+        .scale = (cog_dim2) {.w=0.004, .h=0.004},
+        .dim = (cog_dim2) {.w=1.5, .h=0.003},
+        .pos = (cog_pos2) {.x=-1.0 + E, .y=4.4*E},
+        .col=(cog_color) {
+            .r=0,.g=0,.b=0,.a=1
+        },
+        .layer=5
+    });
+    cog_text_set_str(id, "Choose your   upgrade:");
+
+    cog_sprite_id id1 = cog_sprite_add("../assets/images/1_key.png");
+    cog_sprite_set(id1, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=0.5*E, .h=0.5*E
+        },
+        .pos=(cog_pos2) {
+            .x=-2*E, .y=1*E
+        },
+        .layer=5
+    });
+
+    cog_sprite_id idplot = cog_sprite_add("../assets/images/plot2.png");
+    cog_sprite_set(idplot, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=PlotW, .h=PlotH
+        },
+        .pos=(cog_pos2) {
+            .x=1*E, .y=1*E
+        },
+        .layer=3
+    });
+
+
+    cog_sprite_id id2 = cog_sprite_add("../assets/images/2_key.png");
+    cog_sprite_set(id2, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=0.5*E, .h=0.5*E
+        },
+        .pos=(cog_pos2) {
+            .x=-2*E, .y=-1*E
+        },
+        .layer=5
+    });
+
+    cog_sprite_id idseeds = cog_sprite_add("../assets/images/seeds.png");
+    cog_sprite_set(idseeds, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=0.8*E, .h=0.8*E
+        },
+        .pos=(cog_pos2) {
+            .x=1*E, .y=-1*E
+        },
+        .layer=3
+    });
+
+    cog_sprite_id id3 = cog_sprite_add("../assets/images/3_key.png");
+    cog_sprite_set(id3, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=0.5*E, .h=0.5*E
+        },
+        .pos=(cog_pos2) {
+            .x=-2*E, .y=-3*E
+        },
+        .layer=5
+    });
+
+    cog_sprite_id idwater = cog_sprite_add("../assets/images/watering_can.png");
+    cog_sprite_set(idwater, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=0.5*E, .h=0.5*E
+        },
+        .pos=(cog_pos2) {
+            .x=1*E, .y=-3*E
+        },
+        .layer=3
+    });
+
+
+
+    if(g.score >= level_goals[g.level]) {
+        g.level++; //Progress to next level
+    }
+
+    return State_buyscreen_running;
+}
+
+int32_t buyscreen_running(cog_state_info info) {
+    return State_buyscreen_running;
+}
+
+int32_t buyscreen_running_keypress(cog_state_info info) {
+    uint32_t key = cog_input_key_code_pressed();
+    cog_debugf("Key is %d", key);
+    if(key == '1') {
+        g.nplots++;
+        return State_start;
+    } else if(key == '2') {
+        g.seed_amount++;
+        return State_start;
+    } else if(key == '3') {
+        g.well_water++;
+        return State_start;
+    }
+    return State_buyscreen_running;
+}
+
 cog_state_transition transitions[] = {
-    {State_start, Event_test, &load_level},
-    {State_running, Event_test, &level_running},
+    {State_start, COG_E_DUMMY, &load_level},
+    {State_running, COG_E_DUMMY, &level_running},
     {State_running, COG_E_KEYDOWN, &level_running_keypress},
-    {State_endscreen_loading, Event_test, &load_endscreen},
-    {State_endscreen_running, Event_test, &endscreen_running},
+    {State_endscreen_loading, COG_E_DUMMY, &load_endscreen},
+    {State_endscreen_running, COG_E_DUMMY, &endscreen_running},
     {State_endscreen_running, COG_E_KEYDOWN, &endscreen_running_keypress},
+    {State_buyscreen_loading, COG_E_DUMMY, &load_buyscreen},
+    {State_buyscreen_running, COG_E_DUMMY, &buyscreen_running},
+    {State_buyscreen_running, COG_E_KEYDOWN, &buyscreen_running_keypress},
 };
 
 void main_loop(void) {
@@ -553,6 +720,10 @@ void main_loop(void) {
 
 int main(int argc, char* argv[]) {
     g.level = 0;
+    g.well_water = 1;
+    g.seed_amount = 1;
+    g.nplots = 2;
+
     cog_init(.window_w = 800,
              .window_h = 800,
              .fullscreen = false,
