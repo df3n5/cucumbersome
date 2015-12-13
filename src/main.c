@@ -293,7 +293,7 @@ int32_t level_running(cog_state_info info) {
                     g.grow_timer[i] = 0;
                     g.plot_states[i] = Grown;
                     cog_sprite_remove(g.grow_sprites[i]->id);
-                    cog_sprite_id id = cog_sprite_add("../assets/images/planted_1.png");
+                    cog_sprite_id id = cog_sprite_add("../assets/images/plantedv2_1.png");
                     cog_sprite_set(id, (cog_sprite) {
                         .dim=(cog_dim2) {
                             .w=PlotW, .h=0.1
@@ -402,7 +402,7 @@ int32_t level_running_keypress(cog_state_info info) {
                 g.grow_timer[g.pos] -= cog_rand_int(0, RandRangeGrowTime);
                 cog_debugf("Grow time is now %d", g.grow_timer[g.pos]);
 
-                cog_sprite_id id = cog_sprite_add("../assets/images/planted_0.png");
+                cog_sprite_id id = cog_sprite_add("../assets/images/plantedv2_0.png");
                 cog_sprite_set(id, (cog_sprite) {
                     .dim=(cog_dim2) {
                         .w=PlotW, .h=0.1
