@@ -10,6 +10,12 @@
 #define State_buyscreen_running 6
 #define State_end 7
 #define State_finish 8
+#define State_title_loading 9
+#define State_title_running 10
+#define State_story_loading 11
+#define State_story_running 12
+#define State_credits_loading 13
+#define State_credits_running 14
 
 #define Event_test 1
 
@@ -27,7 +33,7 @@
 #define GrowTime 10000  //ms
 #define WaterTime 5000  //ms on how long between waterings
 #define WaterBenefitTime 3000  //ms on how much water gives you
-#define NLevels 3
+#define NLevels 1
 #define RandRangeWaterTime 1000  // ms
 #define RandRangeGrowTime 5000  // ms
 
@@ -103,10 +109,8 @@ static game g;
 
 int32_t load_level(cog_state_info info) {
     cog_clear();
-    cog_debugf("loading_level...");
     // Init game
     g.pos = 0;
-    cog_debugf("nplots %d", g.nplots);
     g.max_pos = g.nplots+1;
     g.player_dir = Frontwards;
     for(int i = 0; i < MaxPlots; i++) {
@@ -365,7 +369,6 @@ double lerp(double y0, double y1, double x) {
 }
 
 int32_t level_running(cog_state_info info) {
-    //cog_debugf("running_level...");
     uint32_t delta_millis = cog_time_delta_millis();
     // State transitions for plants
     for(int i = 0;i<MaxPlots;i++) {
@@ -419,7 +422,7 @@ int32_t level_running(cog_state_info info) {
         if(g.water_left > 0) {
             cog_text_set_str(g.action_text->id, "water");
         } else {
-            cog_debugf("NO Water_left %d", g.water_left);
+            //cog_debugf("NO Water_left %d", g.water_left);
             cog_text_set_str(g.action_text->id, "no water");
             g.action_text->col = (cog_color) {.r=1.0, .g=0, .b=0, .a=1};
         }
@@ -434,7 +437,7 @@ int32_t level_running(cog_state_info info) {
     // End game logic
     g.level_timer -= delta_millis;
     if(g.level_timer < 0) {
-        cog_debugf("End level");
+        //cog_debugf("End level");
         return State_endscreen_loading;
     }
 
@@ -505,14 +508,14 @@ int32_t level_running_keypress(cog_state_info info) {
             g.arrow->pos.x = new_x + ArrowOffsetX;
         }
         if(key == ' ') {
-            cog_debugf("space pressed on %d in state %d", g.pos, g.plot_states[g.pos]);
+            //cog_debugf("space pressed on %d in state %d", g.pos, g.plot_states[g.pos]);
             if(g.plot_states[g.pos] == Idle) {
                 if(g.seeds_left > 0) {
                     g.seeds_left--;
                     g.plot_states[g.pos] = Planted;
                     g.grow_timer[g.pos] = GrowTime;
                     g.grow_timer[g.pos] -= cog_rand_int(0, RandRangeGrowTime);
-                    cog_debugf("Grow time is now %d", g.grow_timer[g.pos]);
+                    //cog_debugf("Grow time is now %d", g.grow_timer[g.pos]);
 
                     cog_sprite_id id = cog_sprite_add("../assets/images/plantedv2_0.png");
                     cog_sprite_set(id, (cog_sprite) {
@@ -529,7 +532,7 @@ int32_t level_running_keypress(cog_state_info info) {
             } else if(g.plot_states[g.pos] == Planted || g.plot_states[g.pos] == Watered) {
                 if(g.water_left > 0) {
                     g.water_left--;
-                    cog_debugf("water_left : %d", g.water_left);
+                    //cog_debugf("water_left : %d", g.water_left);
 
                     // Only add new sprite if something has changed
                     if(g.plot_states[g.pos] == Planted) {
@@ -551,7 +554,7 @@ int32_t level_running_keypress(cog_state_info info) {
                         if(g.grow_timer[g.pos] < 0) g.grow_timer[g.pos] = 1; // Make it happen next check
                         g.water_timer[g.pos] = WaterTime;
                         g.water_timer[g.pos] -= cog_rand_int(0, RandRangeWaterTime); // Give some variety to this
-                        cog_debugf("Water time is now %d", g.water_timer[g.pos]);
+                        //cog_debugf("Water time is now %d", g.water_timer[g.pos]);
                     }
 
                 }
@@ -589,7 +592,7 @@ int32_t load_endscreen(cog_state_info info) {
         },
         .layer=5
     });
-    char* retry_text[] = {"retry", "continue to"};
+    char* retry_text[] = {"retry", "continue"};
     int level = g.level;
     int retry_index = 0;
     if(g.score >= level_goals[g.level]) {
@@ -597,7 +600,7 @@ int32_t load_endscreen(cog_state_info info) {
         level += 1;
     }
 
-    cog_text_set_str(id, "Let's call it a  night.\n\n\nHarvested: %d\n\nGoal: %d\n\n\nPress enter to%s day %d", g.score, level_goals[g.level], retry_text[retry_index], level + 1);
+    cog_text_set_str(id, "Let's call it a  night.\n\n\nHarvested: %d\n\nGoal: %d\n\n\nPress enter to%s", g.score, level_goals[g.level], retry_text[retry_index], level + 1);
     g.won = false;
     if(g.score >= level_goals[g.level]) {
         g.level++; //Progress to next level
@@ -631,11 +634,14 @@ int32_t endscreen_running(cog_state_info info) {
 
 int32_t endscreen_running_keypress(cog_state_info info) {
     uint32_t key = cog_input_key_code_pressed();
-    cog_debugf("Key is %d", key);
+    //cog_debugf("Key is %d", key);
     if(key == 13) {
         if(g.won) {
-            // TODO :Credits logic here
-            return State_buyscreen_loading;
+            if(g.level == NLevels) {
+                return State_credits_loading;
+            } else {
+                return State_buyscreen_loading;
+            }
         } else {
             return State_start;
         }
@@ -746,7 +752,7 @@ int32_t buyscreen_running(cog_state_info info) {
 
 int32_t buyscreen_running_keypress(cog_state_info info) {
     uint32_t key = cog_input_key_code_pressed();
-    cog_debugf("Key is %d", key);
+    //cog_debugf("Key is %d", key);
     if(key == '1') {
         g.nplots++;
         return State_start;
@@ -760,7 +766,78 @@ int32_t buyscreen_running_keypress(cog_state_info info) {
     return State_buyscreen_running;
 }
 
+int32_t load_title(cog_state_info info) {
+    cog_clear();
+    cog_sprite_id bid = cog_sprite_add("../assets/images/title.png");
+    cog_sprite_set(bid, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=1.0, .h=1.0
+        }
+    });
+
+    return State_title_running;
+}
+int32_t title_running(cog_state_info info) {
+    return State_title_running;
+}
+int32_t title_running_keypress(cog_state_info info) {
+    return State_story_loading;
+}
+
+int32_t load_story(cog_state_info info) {
+    cog_clear();
+    cog_sprite_id bid = cog_sprite_add("../assets/images/story.png");
+    cog_sprite_set(bid, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=1.0, .h=1.0
+        }
+    });
+
+    return State_story_running;
+}
+int32_t story_running(cog_state_info info) {
+    return State_story_running;
+}
+int32_t story_running_keypress(cog_state_info info) {
+    //return State_credits_loading;
+    return State_start;
+}
+
+int32_t load_credits(cog_state_info info) {
+    cog_clear();
+    cog_sprite_id bid = cog_sprite_add("../assets/images/credits.png");
+    cog_sprite_set(bid, (cog_sprite) {
+        .dim=(cog_dim2) {
+            .w=1.0, .h=1.0
+        }
+    });
+
+    return State_credits_running;
+}
+int32_t credits_running(cog_state_info info) {
+    return State_credits_running;
+}
+int32_t credits_running_keypress(cog_state_info info) {
+    uint32_t key = cog_input_key_code_pressed();
+    if(key == 13) {
+        return State_title_loading;
+    }
+    return State_credits_running;
+}
+
 cog_state_transition transitions[] = {
+    {State_title_loading, COG_E_DUMMY, &load_title},
+    {State_title_running, COG_E_DUMMY, &title_running},
+    {State_title_running, COG_E_KEYDOWN, &title_running_keypress},
+
+    {State_story_loading, COG_E_DUMMY, &load_story},
+    {State_story_running, COG_E_DUMMY, &story_running},
+    {State_story_running, COG_E_KEYDOWN, &story_running_keypress},
+
+    {State_credits_loading, COG_E_DUMMY, &load_credits},
+    {State_credits_running, COG_E_DUMMY, &credits_running},
+    {State_credits_running, COG_E_KEYDOWN, &credits_running_keypress},
+
     {State_start, COG_E_DUMMY, &load_level},
     {State_running, COG_E_DUMMY, &level_running},
     {State_running, COG_E_KEYDOWN, &level_running_keypress},
@@ -796,7 +873,7 @@ int main(int argc, char* argv[]) {
     cog_state_fsm_add_transitions(fsm, transitions,
                                   (sizeof(transitions) /
                                    sizeof(*transitions)));
-    cog_state_fsm_set_state(fsm, State_start);
+    cog_state_fsm_set_state(fsm, State_title_loading);
     //cog_start_main_loop(main_loop);
 
     while(!cog_hasquit()) {
