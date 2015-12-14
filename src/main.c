@@ -303,7 +303,7 @@ int32_t load_level(cog_state_info info) {
             .w=0.3*E, .h=0.3*E
         },
         .pos=(cog_pos2) {
-            .x=player->pos.x-0.1*E, .y=player->pos.y-1.3*E
+            .x=player->pos.x+2.5*E, .y=player->pos.y+3.0*E
         },
         .layer=5
     });
@@ -312,7 +312,7 @@ int32_t load_level(cog_state_info info) {
     cog_text_set(water_tid, (cog_text) {
         .scale = (cog_dim2) {.w=0.001, .h=0.001},
         .dim = (cog_dim2) {.w=2.0, .h=0.003},
-        .pos = (cog_pos2) {.x=player->pos.x+0.2*E, .y=water->pos.y-0.15*E},
+        .pos = (cog_pos2) {.x=water->pos.x+0.3*E, .y=water->pos.y-0.15*E},
         .col=(cog_color) {
             .r=0,.g=0,.b=0,.a=1
         },
@@ -327,7 +327,7 @@ int32_t load_level(cog_state_info info) {
             .w=0.5*E, .h=0.5*E
         },
         .pos=(cog_pos2) {
-            .x=player->pos.x, .y=player->pos.y-2*E
+            .x=player->pos.x+2.5*E, .y=player->pos.y+2.3*E
         },
         .layer=5
     });
@@ -337,7 +337,7 @@ int32_t load_level(cog_state_info info) {
     cog_text_set(seeds_tid, (cog_text) {
         .scale = (cog_dim2) {.w=0.001, .h=0.001},
         .dim = (cog_dim2) {.w=2.0, .h=0.003},
-        .pos = (cog_pos2) {.x=seeds->pos.x+0.2*E, .y=seeds->pos.y-0.1*E},
+        .pos = (cog_pos2) {.x=seeds->pos.x+0.3*E, .y=seeds->pos.y-0.1*E},
         .col=(cog_color) {
             .r=0,.g=0,.b=0,.a=1
         },
