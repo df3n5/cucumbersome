@@ -39,7 +39,7 @@
 
 
 int32_t level_times[] = {
-    10000,
+    100000,
     80000,
     80000,
     80000,
@@ -868,16 +868,16 @@ void main_loop(void) {
 }
 
 int main(int argc, char* argv[]) {
-/*
     g.level = 0;
     g.well_water = 1;
     g.seed_amount = 1;
     g.nplots = 2;
-*/
+/*
     g.level = 4;
     g.well_water = 2;
     g.seed_amount = 2;
     g.nplots = 4;
+*/
 
     cog_init(.window_w = 800,
              .window_h = 800,
