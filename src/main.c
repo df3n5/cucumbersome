@@ -130,6 +130,10 @@ int32_t load_level(cog_state_info info) {
     g.water_left = 0;
     g.seeds_left = 0;
 
+    // Play music
+    cog_snd_id snd = cog_snd_add("../assets/music/music.wav");
+    cog_snd_play(snd);
+
     cog_rect_id rid = cog_rect_add();
     cog_rect_set(rid, (cog_rect) {
         .dim=(cog_dim2) {
