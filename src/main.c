@@ -485,6 +485,11 @@ int32_t level_running(cog_state_info info) {
 int32_t level_running_keypress(cog_state_info info) {
     if(cog_input_key_pressed()) {
         uint32_t key = cog_input_key_code_pressed();
+        if(key == 'n') {
+            // Cheat! Go to next level
+            g.score = 99999999;
+            return State_endscreen_loading;
+        }
         if(key == 'd') {
             if(g.player_dir == Frontwards) {
                 g.pos++;
@@ -640,12 +645,26 @@ int32_t endscreen_running(cog_state_info info) {
     return State_endscreen_running;
 }
 
+void reset_state(void) {
+    g.level = 0;
+    g.well_water = 1;
+    g.seed_amount = 1;
+    g.nplots = 2;
+/*
+    g.level = 4;
+    g.well_water = 2;
+    g.seed_amount = 2;
+    g.nplots = 4;
+*/
+}
+
 int32_t endscreen_running_keypress(cog_state_info info) {
     uint32_t key = cog_input_key_code_pressed();
     //cog_debugf("Key is %d", key);
     if(key == 13) {
         if(g.won) {
             if(g.level == NLevels) {
+                reset_state();
                 return State_credits_loading;
             } else {
                 return State_buyscreen_loading;
@@ -746,10 +765,6 @@ int32_t load_buyscreen(cog_state_info info) {
         },
         .layer=3
     });
-
-    if(g.score >= level_goals[g.level]) {
-        g.level++; //Progress to next level
-    }
 
     return State_buyscreen_running;
 }
@@ -868,17 +883,7 @@ void main_loop(void) {
 }
 
 int main(int argc, char* argv[]) {
-    g.level = 0;
-    g.well_water = 1;
-    g.seed_amount = 1;
-    g.nplots = 2;
-/*
-    g.level = 4;
-    g.well_water = 2;
-    g.seed_amount = 2;
-    g.nplots = 4;
-*/
-
+    reset_state();
     cog_init(.window_w = 800,
              .window_h = 800,
              .fullscreen = false,
