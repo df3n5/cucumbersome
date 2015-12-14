@@ -33,21 +33,25 @@
 #define GrowTime 10000  //ms
 #define WaterTime 5000  //ms on how long between waterings
 #define WaterBenefitTime 3000  //ms on how much water gives you
-#define NLevels 1
+#define NLevels 5
 #define RandRangeWaterTime 1000  // ms
 #define RandRangeGrowTime 5000  // ms
 
 
 int32_t level_times[] = {
     10000,
-    20000,
-    30000
+    80000,
+    80000,
+    80000,
+    80000
 };
 
 int32_t level_goals[] = {
-    2,
-    3,
-    4
+    10,
+    15,
+    20,
+    30,
+    40
 };
 
 /*
@@ -563,7 +567,7 @@ int32_t level_running_keypress(cog_state_info info) {
                 g.plot_states[g.pos] = Idle;
 
                 // Remove water if it exists
-                if(g.water_timer > 0) {
+                if(g.water_timer[g.pos] > 0) {
                     cog_sprite_remove(g.watered_sprites[g.pos]->id);
                     g.water_timer[g.pos] = 0;
                 }
@@ -860,10 +864,16 @@ void main_loop(void) {
 }
 
 int main(int argc, char* argv[]) {
+/*
     g.level = 0;
     g.well_water = 1;
     g.seed_amount = 1;
     g.nplots = 2;
+*/
+    g.level = 4;
+    g.well_water = 2;
+    g.seed_amount = 2;
+    g.nplots = 4;
 
     cog_init(.window_w = 800,
              .window_h = 800,
